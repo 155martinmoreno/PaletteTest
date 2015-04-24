@@ -1,6 +1,10 @@
 package com.tinchoapps.palettetest.utils;
 
+import android.content.Context;
+import android.graphics.Point;
 import android.os.Handler;
+import android.view.Display;
+import android.view.WindowManager;
 
 public final class Util
 {
@@ -8,6 +12,13 @@ public final class Util
 
     private Util()
     {
+    }
+
+    public static Point getScreenSize(Context context)
+    {
+        WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+        Display display = wm.getDefaultDisplay();
+        return new Point(display.getWidth(), display.getHeight());
     }
 
     // Returns the next power of two.

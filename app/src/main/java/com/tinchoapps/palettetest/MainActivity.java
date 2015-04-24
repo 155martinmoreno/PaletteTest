@@ -1,33 +1,26 @@
 package com.tinchoapps.palettetest;
 
-import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.drawable.Drawable;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
-import android.support.annotation.NonNull;
+import android.support.v4.app.LoaderManager;
+import android.support.v4.content.CursorLoader;
+import android.support.v4.content.Loader;
+import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.graphics.Palette;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
-import android.widget.ImageView;
-import android.widget.TextView;
-import com.tinchoapps.palettetest.utils.BitmapUtils;
-import com.tinchoapps.palettetest.utils.GalleryUtils;
-
-import java.io.File;
-import java.util.ArrayList;
 
 
-public class MainActivity extends AppCompatActivity
+public class MainActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<Cursor>
 {
-    public static final int REQUEST_CODE_GALLERY = 0;
-    private ImageView imageView;
-    private TextView titleView;
-    private TextView subTitleView;
-    private View titleContainerView;
+    private static final int LOAD_GALLERY = 0;
+    private final String[] projection = new String[]{
+            MediaStore.Images.Media.DISPLAY_NAME, MediaStore.Images.Media.BUCKET_DISPLAY_NAME, MediaStore.Images.Media.SIZE, MediaStore.Images.Media.DATA
+    };
+
+    private CursorPagerAdapter<MainFragment> galleryAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -35,24 +28,11 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Drawable pictureBackground = getResources().getDrawable(R.drawable.pick_picture_bg);
+        getSupportLoaderManager().restartLoader(LOAD_GALLERY, null, this);
 
-        titleContainerView = findViewById(R.id.title_container_view);
-
-        imageView = (ImageView) findViewById(R.id.image_view);
-        imageView.setBackground(pictureBackground);
-        imageView.setOnClickListener(new View.OnClickListener()
-        {
-            @Override
-            public void onClick(final View v)
-            {
-                GalleryUtils.startSystemGalleryIntent(MainActivity.this, getString(R.string.choose_picture), false, REQUEST_CODE_GALLERY, null);
-            }
-        });
-
-
-        titleView = (TextView) findViewById(R.id.title_text_view);
-        subTitleView = (TextView) findViewById(R.id.sub_title_text_view);
+        ViewPager viewPager = (ViewPager) findViewById(R.id.view_pager);
+        galleryAdapter = new CursorPagerAdapter<>(getSupportFragmentManager(), MainFragment.class, projection, null);
+        viewPager.setAdapter(galleryAdapter);
     }
 
 
@@ -82,48 +62,35 @@ public class MainActivity extends AppCompatActivity
     }
 
     @Override
-    protected void onActivityResult(final int requestCode, final int resultCode, final Intent data)
+    public Loader<Cursor> onCreateLoader(final int id, final Bundle args)
     {
-        super.onActivityResult(requestCode, resultCode, data);
+        CursorLoader cursorLoader = null;
 
-        if (resultCode == RESULT_OK)
+        switch (id)
         {
-            switch (requestCode)
-            {
-                case REQUEST_CODE_GALLERY:
-                    try
-                    {
-                        ArrayList<Uri> resultFromGallery = GalleryUtils.getResultFromGalleryIntent(this, data, false);
-                        Uri uri = resultFromGallery.get(0);
-                        Bitmap bitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(), uri);
-                        bitmap = BitmapUtils.resizeDownBySideLength(bitmap, Math.max(imageView.getWidth(), imageView.getHeight()), true);
+            case LOAD_GALLERY:
+                Uri imagesUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+                cursorLoader = new CursorLoader(this, imagesUri, projection, null, null, null);
+                break;
+        }
 
-                        imageView.setImageBitmap(bitmap);
+        return cursorLoader;
+    }
 
-                        Palette palette = getPalette(bitmap);
-
-                        Palette.Swatch swatch = palette.getDarkVibrantSwatch();
-
-                        titleContainerView.setBackgroundColor(swatch.getRgb());
-                        titleView.setTextColor(swatch.getTitleTextColor());
-                        subTitleView.setTextColor(swatch.getBodyTextColor());
-
-                        File file = new File(uri.getPath());
-                        titleView.setText(file.getName());
-                        subTitleView.setText("Some other data");
-                    } catch (Exception e)
-                    {
-                        e.printStackTrace();
-                    }
-                    break;
-            }
+    @Override
+    public void onLoadFinished(final Loader<Cursor> loader, final Cursor data)
+    {
+        switch (loader.getId())
+        {
+            case LOAD_GALLERY:
+                galleryAdapter.changeCursor(data);
+                break;
         }
     }
 
-    private Palette getPalette(@NonNull final Bitmap bitmap)
+    @Override
+    public void onLoaderReset(final Loader<Cursor> loader)
     {
-        Palette.Builder builder = new Palette.Builder(bitmap);
-        return builder.generate();
+        galleryAdapter.changeCursor(null);
     }
-
 }
